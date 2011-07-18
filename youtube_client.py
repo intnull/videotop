@@ -51,7 +51,7 @@ class YouTubeVideo:
         self.download_process = None
 
     def open(self):
-        webbrowser.open_new_tab(self.entry.media.player.url)
+        webbrowser.open_new_tab(self.url)
 
     def download(self):
         command = ['youtube-dl', '--no-part', '-o', '%(title)s.%(ext)s', self.url]
