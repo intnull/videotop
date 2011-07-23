@@ -64,7 +64,8 @@ class YouTubeVideo:
 
     def download(self):
         # max-quality=34 means 360p, 35: 480p, 22: 720p, 37: 1080p
-        command = ['youtube-dl', '--no-part', '--continue', '--max-quality=35', '--output=%(title)s.%(ext)s', self.url]
+        command = ['youtube-dl', '--no-part', '--continue', '--max-quality=35',
+                   '--output=%(title)s.%(ext)s', self.url]
         temp = tempfile.TemporaryFile()
         self.download_process = subprocess.Popen(command, stdout=temp, stderr=temp)
 
@@ -78,6 +79,6 @@ class YouTubeVideo:
     def play(self):
         temp = tempfile.TemporaryFile()
         self.file = self.title + '.flv'
-        subprocess.Popen(['mplayer', '-fs', self.file], stdout=temp, stderr=temp)
+        subprocess.Popen(['mplayer', '-fs', self.file], stdout=temp, stderr=temp, stdin=temp)
         self.file = self.title + '.mp4'
-        subprocess.Popen(['mplayer', '-fs', self.file], stdout=temp, stderr=temp)
+        subprocess.Popen(['mplayer', '-fs', self.file], stdout=temp, stderr=temp, stdin=temp)

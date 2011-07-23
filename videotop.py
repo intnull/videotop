@@ -108,9 +108,10 @@ class VideoListBox(urwid.WidgetWrap):
         else:
             return self.listbox.keypress(size, key)
 
-# change to .videotop directory
-homepath = os.environ['HOME']
-os.chdir(homepath + '/.videotop')
+# change to download directory
+home_dir = os.environ['HOME']
+download_dir = os.path.join(home_dir, '.videotop')
+os.chdir(download_dir)
 
 palette = [('focus', 'light red', 'black', 'standout'),
           ('status', 'white', 'dark blue'),
