@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
+import os
 import urwid
 import youtube_client
 
@@ -7,15 +8,26 @@ class VideoButton(urwid.FlowWidget):
     def __init__(self, video, index):
         self.video = video
         self.index = urwid.Text(('index', str(index)))
-        text = (
-            [self.video.title + '\n', ('index', 'Author: '), self.video.author + '    ',
-            ('index', 'Views: '), self.video.views + '    ',
-            ('index', 'Rating: '), self.video.rating + '\n'])
-        self.button = urwid.Text(text)
-        self.display_widget = urwid.Columns([('fixed', 3, self.index), self.button])
+        try:
+            rounded_rating = str(round(float(self.video.rating), 1))
+        except:
+            rounded_rating = self.video.rating
+
+        width = 30
+        views = urwid.Text([('index', 'Views: '), self.video.views])
+        rating = urwid.Text([('index', 'Rating: '), rounded_rating])
+        author = urwid.Text([('index', 'Author: '), self.video.author, '\n'])
+        button_info = urwid.Columns([('fixed', width, author), ('fixed', width, views), ('fixed', width, rating)])
+        title = urwid.Text(self.video.title)
+        button = urwid.Pile([title, button_info])
+
+        index_width = int(len(str(index)) + 2)
+        if index_width == 3:
+            index_width += 1 # align the first 9 videos
+        self.display_widget = urwid.Columns([('fixed', index_width, self.index), button])
         self.display_widget = urwid.AttrMap(self.display_widget, None, 'focus')
     def rows(self, size, focus=False):
-        return 3
+        return self.display_widget.rows(size, focus)
     def render(self, size, focus=False):
         return self.display_widget.render(size, focus)
     def selectable(self):
@@ -49,6 +61,10 @@ class CommandPrompt(urwid.Edit):
             listbox.append(search)
             status_bar.set_text(query)
             main_frame.set_focus('body')
+        if key == 'ctrl x':
+            main_frame.set_focus('body')
+            self.set_caption('')
+            self.set_edit_text('')
         else:
             return urwid.Edit.keypress(self, size, key)
 
@@ -63,7 +79,10 @@ class VideoListBox(urwid.WidgetWrap):
             self.body.append(new_button)
             loop.draw_screen()
     def keypress(self, size, key):
-        if key == 'j':
+        if key == ':':
+            main_frame.set_focus('footer')
+            command_prompt.set_caption(':')
+        elif key == 'j':
             self.listbox.keypress(size, 'down')
         elif key == 'k':
             self.listbox.keypress(size, 'up')
@@ -89,13 +108,17 @@ class VideoListBox(urwid.WidgetWrap):
         else:
             return self.listbox.keypress(size, key)
 
+# change to .videotop directory
+homepath = os.environ['HOME']
+os.chdir(homepath + '/.videotop')
+
 palette = [('focus', 'light red', 'black', 'standout'),
-          ('status', 'yellow', 'dark blue'),
+          ('status', 'white', 'dark blue'),
           ('opened', 'light blue', 'black'),
-          ('downloaded', 'yellow', 'black'),
+          ('downloaded', 'white', 'black'),
           ('index', 'dark cyan', 'black')]
 listbox = VideoListBox()
-command_prompt = CommandPrompt('> ')
+command_prompt = CommandPrompt(':')
 status_bar = urwid.Text('Press enter to search', align='left')
 footer = urwid.Pile([urwid.AttrMap(status_bar, 'status'), command_prompt])
 main_frame = urwid.Frame(listbox)
@@ -108,9 +131,15 @@ def handle_input(input):
         raise urwid.ExitMainLoop()
     if input == 'tab':
         if main_frame.focus_part == 'body':
+            command_prompt.set_caption(':')
             main_frame.set_focus('footer')
         else:
             main_frame.set_focus('body')
+    if input == 'm':
+        video_list = os.listdir(os.getcwd())
+        video_list = [os.path.splitext(video)[0] for video in video_list]
+        videos = [client.get_local_video(video) for video in video_list]
+        listbox.append(videos)
 
 loop = urwid.MainLoop(main_frame, palette, unhandled_input=handle_input)
 loop.run()

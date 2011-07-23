@@ -33,13 +33,22 @@ class YouTubeClient:
     def next_page(self):
         return self.search(self.last_search[0], self.last_search[1] + 1)
 
+    def get_local_video(self, video_title):
+        title = gdata.media.Title(text=video_title)
+        group = gdata.media.Group(title=title)
+        video_entry = gdata.youtube.YouTubeVideoEntry(media=group)
+        return YouTubeVideo(video_entry)
+
 class YouTubeVideo:
     def __init__(self, entry):
         self.title = entry.media.title.text
-        self.url = entry.media.player.url
-        self.duration = entry.media.duration.seconds
-        self.description = entry.media.description.text
-        self.author = entry.author[0].name.text
+        try:
+            self.url = entry.media.player.url
+            self.duration = entry.media.duration.seconds
+            self.description = entry.media.description.text
+            self.author = entry.author[0].name.text
+        except:
+            self.author = 'N/A' # dunno, local video
         try:
             self.views = entry.statistics.view_count
         except AttributeError:
@@ -54,7 +63,8 @@ class YouTubeVideo:
         webbrowser.open_new_tab(self.url)
 
     def download(self):
-        command = ['youtube-dl', '--no-part', '-o', '%(title)s.%(ext)s', self.url]
+        # max-quality=34 means 360p, 35: 480p, 22: 720p, 37: 1080p
+        command = ['youtube-dl', '--no-part', '--continue', '--max-quality=35', '--output=%(title)s.%(ext)s', self.url]
         temp = tempfile.TemporaryFile()
         self.download_process = subprocess.Popen(command, stdout=temp, stderr=temp)
 
