@@ -30,6 +30,13 @@ class YouTubeClient:
             videos.append(new_video)
         return videos
 
+    def search_user(self, username):
+        return self.get_videos(self.yt_service.GetYouTubeUserFeed(username=username))
+
+    def get_related_videos(self, video_id):
+        related_feed = self.yt_service.GetYouTubeRelatedVideoFeed(video_id=video_id)
+        return self.get_videos(related_feed)
+
     def next_page(self):
         return self.search(self.last_search[0], self.last_search[1] + 1)
 
@@ -41,6 +48,7 @@ class YouTubeClient:
 
 class YouTubeVideo:
     def __init__(self, entry):
+        self.entry = entry
         self.title = entry.media.title.text
         try:
             self.url = entry.media.player.url

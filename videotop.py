@@ -7,7 +7,8 @@ import youtube_client
 class VideoButton(urwid.FlowWidget):
     def __init__(self, video, index, color='index'):
         self.video = video
-        self.index = urwid.Text((color, str(index)))
+        self.index = index
+        index = urwid.Text((color, str(self.index)))
         try:
             rounded_rating = str(round(float(self.video.rating), 1))
         except:
@@ -24,10 +25,10 @@ class VideoButton(urwid.FlowWidget):
         title = urwid.Text(self.video.title)
         button = urwid.Pile([title, button_info])
 
-        index_width = int(len(str(index)) + 2)
+        index_width = int(len(str(self.index)) + 2)
         if index_width == 3:
             index_width += 1 # align the first 9 videos
-        self.display_widget = urwid.Columns([('fixed', index_width, self.index), button])
+        self.display_widget = urwid.Columns([('fixed', index_width, index), button])
         self.display_widget = urwid.AttrMap(self.display_widget, None, 'focus')
     def rows(self, size, focus=False):
         return self.display_widget.rows(size, focus)
@@ -59,6 +60,11 @@ class CommandPrompt(urwid.Edit):
         self.set_edit_text('')
     def keypress(self, size, key):
         if key == 'enter' and not self.get_edit_text() == '':
+            if self.caption == '/':
+                pattern = self.get_edit_text()
+                self.clear()
+                listbox.search(pattern)
+                return
             command = self.get_edit_text()
             command = command.split(' ', 1)
             if command[0] in ('search', 's'):
@@ -69,6 +75,24 @@ class CommandPrompt(urwid.Edit):
                 search = client.search(query) # takes the most time
                 listbox.append(search)
                 status_bar.set_text(query)
+                main_frame.set_focus('body')
+            elif command[0] in ('search_user', 'su'):
+                user = command[1]
+                self.clear()
+                status_bar.set_text('Searching for videos by: ' + user)
+                loop.draw_screen()
+                search = client.search_user(user) # takes the most time
+                listbox.append(search)
+                status_bar.set_text(user)
+                main_frame.set_focus('body')
+            elif command[0] == 'related':
+                self.clear()
+                status_bar.set_text('Searching for related videos...')
+                loop.draw_screen()
+                # current_video_id should be in youtube_client.YouTubeVideo
+                current_video_id = listbox.get_focus().video.entry.id.text.split('/')[-1]
+                related_videos = client.get_related_videos(current_video_id) # takes the most time
+                listbox.append(related_videos)
                 main_frame.set_focus('body')
             elif command[0] in ('videos', 'v'):
                 self.clear()
@@ -90,12 +114,10 @@ class CommandPrompt(urwid.Edit):
                 main_frame.set_focus('body')
             elif command[0] in ('quit', 'q'):
                 raise urwid.ExitMainLoop()
-            elif command[0] == '?':
-                listbox.search(command[1])
             else:
                 status_bar.set_text('Error, there is no command named "' + command[0] + '"')
                 pass
-        if key == 'ctrl x':
+        if key in ('esc', 'ctrl x'):
             main_frame.set_focus('body')
             self.clear()
         else:
@@ -103,6 +125,8 @@ class CommandPrompt(urwid.Edit):
 
 class VideoListBox(urwid.WidgetWrap):
     def __init__(self):
+        self.latest_search = None
+        self.latest_search_position = None
         self.body = urwid.SimpleListWalker([])
         self.listbox = urwid.ListBox(self.body)
         urwid.WidgetWrap.__init__(self, self.listbox)
@@ -116,16 +140,29 @@ class VideoListBox(urwid.WidgetWrap):
         self.body[:] = []
     def set_focus(self, position):
         self.listbox.set_focus(position)
+    def get_focus(self):
+        return self.listbox.get_focus()[0]
     def search(self, pattern):
         video_list = [video_button.video.title for video_button in self.body]
+        index_list = []
         for video in video_list:
             if pattern in video:
-                status_bar.set_text('found: ' + pattern)
-        # TODO: return the list of all indexes whose videos have the pattern in them.
+                index_list.append(video_list.index(video))
+        self.latest_search = index_list
+        self.latest_search_position = 0
+        try:
+            first_result = self.latest_search[self.latest_search_position]
+            self.set_focus(first_result)
+        except:
+            status_bar.set_text('Error, could not find pattern "' + pattern + '"')
+        main_frame.set_focus('body')
     def keypress(self, size, key):
         if key == ':':
             main_frame.set_focus('footer')
             command_prompt.set_caption(':')
+        if key == '/':
+            main_frame.set_focus('footer')
+            command_prompt.set_caption('/')
         elif key == 'j':
             self.listbox.keypress(size, 'down')
         elif key == 'k':
@@ -147,6 +184,20 @@ class VideoListBox(urwid.WidgetWrap):
         elif key == 'ctrl n':
             search = client.next_page()
             self.append(search)
+        elif key == 'n':
+            try:
+                self.latest_search_position += 1
+                self.listbox.set_focus(self.latest_search[self.latest_search_position])
+            except:
+                self.latest_search_position = 0
+                self.listbox.set_focus(self.latest_search[self.latest_search_position])
+        elif key == 'N':
+            try:
+                self.latest_search_position -= 1
+                self.listbox.set_focus(self.latest_search[self.latest_search_position])
+            except:
+                self.latest_search_position = len(self.latest_search) - 1
+                self.listbox.set_focus(self.latest_search[self.latest_search_position])
         else:
             return self.listbox.keypress(size, key)
 
@@ -162,12 +213,11 @@ palette = [('focus', 'light red', 'black', 'standout'),
           ('local_video', 'yellow', 'black'),
           ('index', 'dark cyan', 'black')]
 listbox = VideoListBox()
-command_prompt = CommandPrompt(':')
+command_prompt = CommandPrompt('')
 status_bar = urwid.Text('Press enter to search', align='left')
 footer = urwid.Pile([urwid.AttrMap(status_bar, 'status'), command_prompt])
 main_frame = urwid.Frame(listbox)
 main_frame.set_footer(footer)
-main_frame.set_focus('footer')
 client = youtube_client.YouTubeClient()
 
 def handle_input(input):
