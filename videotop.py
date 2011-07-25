@@ -5,19 +5,22 @@ import urwid
 import youtube_client
 
 class VideoButton(urwid.FlowWidget):
-    def __init__(self, video, index):
+    def __init__(self, video, index, color='index'):
         self.video = video
-        self.index = urwid.Text(('index', str(index)))
+        self.index = urwid.Text((color, str(index)))
         try:
             rounded_rating = str(round(float(self.video.rating), 1))
         except:
             rounded_rating = self.video.rating
 
         width = 30
-        views = urwid.Text([('index', 'Views: '), self.video.views])
-        rating = urwid.Text([('index', 'Rating: '), rounded_rating])
-        author = urwid.Text([('index', 'Author: '), self.video.author, '\n'])
-        button_info = urwid.Columns([('fixed', width, author), ('fixed', width, views), ('fixed', width, rating)])
+        duration = self.video.formatted_duration()
+        views = urwid.Text([(color, 'Views: '), self.video.views])
+        rating = urwid.Text([(color, 'Rating: '), rounded_rating])
+        author = urwid.Text([(color, 'Author: '), self.video.author])
+        duration = urwid.Text([(color, 'Duration: '), duration, '\n'])
+        button_info = urwid.Columns([('fixed', width, author), ('fixed', width, views),
+                                     ('fixed', width, rating), ('fixed', width, duration)])
         title = urwid.Text(self.video.title)
         button = urwid.Pile([title, button_info])
 
@@ -51,20 +54,50 @@ class VideoButton(urwid.FlowWidget):
             return key
 
 class CommandPrompt(urwid.Edit):
+    def clear(self):
+        self.set_caption('')
+        self.set_edit_text('')
     def keypress(self, size, key):
         if key == 'enter' and not self.get_edit_text() == '':
-            query = self.get_edit_text()
-            self.set_edit_text('')
-            status_bar.set_text('Searching for: ' + query)
-            loop.draw_screen()
-            search = client.search(query) # takes the most time
-            listbox.append(search)
-            status_bar.set_text(query)
-            main_frame.set_focus('body')
+            command = self.get_edit_text()
+            command = command.split(' ', 1)
+            if command[0] in ('search', 's'):
+                query = command[1]
+                self.clear()
+                status_bar.set_text('Searching for: ' + query)
+                loop.draw_screen()
+                search = client.search(query) # takes the most time
+                listbox.append(search)
+                status_bar.set_text(query)
+                main_frame.set_focus('body')
+            elif command[0] in ('videos', 'v'):
+                self.clear()
+                status_bar.set_text('Listing local videos')
+                loop.draw_screen()
+                video_list = os.listdir(os.getcwd())
+                video_list = [os.path.splitext(video)[0] for video in video_list]
+                video_list.sort()
+                videos = [client.get_local_video(video) for video in video_list]
+                listbox.append(videos, color='local_video')
+                main_frame.set_focus('body')
+            elif command[0] == 'clear':
+                listbox.clear()
+                self.set_edit_text('')
+            elif command[0].isdigit():
+                self.clear()
+                video_focus = int(command[0]) - 1
+                listbox.set_focus(video_focus)
+                main_frame.set_focus('body')
+            elif command[0] in ('quit', 'q'):
+                raise urwid.ExitMainLoop()
+            elif command[0] == '?':
+                listbox.search(command[1])
+            else:
+                status_bar.set_text('Error, there is no command named "' + command[0] + '"')
+                pass
         if key == 'ctrl x':
             main_frame.set_focus('body')
-            self.set_caption('')
-            self.set_edit_text('')
+            self.clear()
         else:
             return urwid.Edit.keypress(self, size, key)
 
@@ -73,11 +106,22 @@ class VideoListBox(urwid.WidgetWrap):
         self.body = urwid.SimpleListWalker([])
         self.listbox = urwid.ListBox(self.body)
         urwid.WidgetWrap.__init__(self, self.listbox)
-    def append(self, search):
+    def append(self, search, color='index'):
         for video in search:
-            new_button = VideoButton(video, int(len(self.body)) + 1)
+            new_button = VideoButton(video, int(len(self.body)) + 1, color)
             self.body.append(new_button)
             loop.draw_screen()
+    def clear(self):
+        status_bar.set_text('Cleared the screen.')
+        self.body[:] = []
+    def set_focus(self, position):
+        self.listbox.set_focus(position)
+    def search(self, pattern):
+        video_list = [video_button.video.title for video_button in self.body]
+        for video in video_list:
+            if pattern in video:
+                status_bar.set_text('found: ' + pattern)
+        # TODO: return the list of all indexes whose videos have the pattern in them.
     def keypress(self, size, key):
         if key == ':':
             main_frame.set_focus('footer')
@@ -99,9 +143,7 @@ class VideoListBox(urwid.WidgetWrap):
                 position = 0
             self.listbox.set_focus(position, 'below')
         elif key == 'ctrl r':
-            status_bar.set_text('Cleared the screen.')
-            self.body[:] = []
-            main_frame.set_focus('footer')
+            self.clear()
         elif key == 'ctrl n':
             search = client.next_page()
             self.append(search)
@@ -117,6 +159,7 @@ palette = [('focus', 'light red', 'black', 'standout'),
           ('status', 'white', 'dark blue'),
           ('opened', 'light blue', 'black'),
           ('downloaded', 'white', 'black'),
+          ('local_video', 'yellow', 'black'),
           ('index', 'dark cyan', 'black')]
 listbox = VideoListBox()
 command_prompt = CommandPrompt(':')
@@ -128,19 +171,7 @@ main_frame.set_focus('footer')
 client = youtube_client.YouTubeClient()
 
 def handle_input(input):
-    if input in ('q', 'Q'):
-        raise urwid.ExitMainLoop()
-    if input == 'tab':
-        if main_frame.focus_part == 'body':
-            command_prompt.set_caption(':')
-            main_frame.set_focus('footer')
-        else:
-            main_frame.set_focus('body')
-    if input == 'm':
-        video_list = os.listdir(os.getcwd())
-        video_list = [os.path.splitext(video)[0] for video in video_list]
-        videos = [client.get_local_video(video) for video in video_list]
-        listbox.append(videos)
+    pass
 
 loop = urwid.MainLoop(main_frame, palette, unhandled_input=handle_input)
 loop.run()

@@ -49,6 +49,7 @@ class YouTubeVideo:
             self.author = entry.author[0].name.text
         except:
             self.author = 'N/A' # dunno, local video
+            self.duration = 'N/A'
         try:
             self.views = entry.statistics.view_count
         except AttributeError:
@@ -82,3 +83,12 @@ class YouTubeVideo:
         subprocess.Popen(['mplayer', '-fs', self.file], stdout=temp, stderr=temp, stdin=temp)
         self.file = self.title + '.mp4'
         subprocess.Popen(['mplayer', '-fs', self.file], stdout=temp, stderr=temp, stdin=temp)
+
+    def formatted_duration(self):
+        try:
+            m, s = divmod(int(self.duration), 60)
+            h, m = divmod(m, 60)
+            test = "%d:%02d:%02d" % (h, m, s)
+            return test
+        except:
+            return self.duration # N/A
