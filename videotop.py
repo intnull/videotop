@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
+
 import os
 import urwid
 import youtube_client
@@ -30,12 +31,16 @@ class VideoButton(urwid.FlowWidget):
             index_width += 1 # align the first 9 videos
         self.display_widget = urwid.Columns([('fixed', index_width, index), button])
         self.display_widget = urwid.AttrMap(self.display_widget, None, 'focus')
+
     def rows(self, size, focus=False):
         return self.display_widget.rows(size, focus)
+
     def render(self, size, focus=False):
         return self.display_widget.render(size, focus)
+
     def selectable(self):
         return True
+
     def keypress(self, size, key):
         if key == 'enter':
             self.display_widget.set_attr_map({None: 'downloaded'})
@@ -58,6 +63,7 @@ class CommandPrompt(urwid.Edit):
     def clear(self):
         self.set_caption('')
         self.set_edit_text('')
+
     def keypress(self, size, key):
         if key == 'enter' and not self.get_edit_text() == '':
             if self.caption == '/':
@@ -130,18 +136,23 @@ class VideoListBox(urwid.WidgetWrap):
         self.body = urwid.SimpleListWalker([])
         self.listbox = urwid.ListBox(self.body)
         urwid.WidgetWrap.__init__(self, self.listbox)
+
     def append(self, search, color='index'):
         for video in search:
             new_button = VideoButton(video, int(len(self.body)) + 1, color)
             self.body.append(new_button)
             loop.draw_screen()
+
     def clear(self):
         status_bar.set_text('Cleared the screen.')
         self.body[:] = []
+
     def set_focus(self, position):
         self.listbox.set_focus(position)
+
     def get_focus(self):
         return self.listbox.get_focus()[0]
+
     def search(self, pattern):
         video_list = [video_button.video.title for video_button in self.body]
         index_list = []
@@ -156,6 +167,7 @@ class VideoListBox(urwid.WidgetWrap):
         except:
             status_bar.set_text('Error, could not find pattern "' + pattern + '"')
         main_frame.set_focus('body')
+
     def keypress(self, size, key):
         if key == ':':
             main_frame.set_focus('footer')
@@ -203,7 +215,7 @@ class VideoListBox(urwid.WidgetWrap):
 
 # change to download directory
 home_dir = os.environ['HOME']
-download_dir = os.path.join(home_dir, '.videotop')
+download_dir = os.path.join(home_dir, '.videotop/videos')
 os.chdir(download_dir)
 
 palette = [('focus', 'light red', 'black', 'standout'),
@@ -214,7 +226,7 @@ palette = [('focus', 'light red', 'black', 'standout'),
           ('index', 'dark cyan', 'black')]
 listbox = VideoListBox()
 command_prompt = CommandPrompt('')
-status_bar = urwid.Text('Press enter to search', align='left')
+status_bar = urwid.Text('Type ":s Monty Python<Enter>" to search for "Monty Python" videos on YouTube', align='left')
 footer = urwid.Pile([urwid.AttrMap(status_bar, 'status'), command_prompt])
 main_frame = urwid.Frame(listbox)
 main_frame.set_footer(footer)
