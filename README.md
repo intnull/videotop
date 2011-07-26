@@ -1,8 +1,5 @@
-# WARNING!
-This program is still under heavy development.
-
 # Description
-**Videotop** is a free console browser for online videos, written in python with vim-like keybindings.
+A free console browser for online videos, written in python with vim-like keybindings.
 
 # Usage
 If you are already familiar with vim the controls should be pretty intuitive.  
@@ -14,6 +11,11 @@ This will generate a list of videos and switch to browse mode.
 In browse mode you can download the videos by hitting **ENTER** and play them with **p**.  
 You can also open the youtube page by hitting **o**.  
 **CTRL n** lists the next videos of your previous search and **CTRL r** clears the screen.
+
+To search for the string *SOMETHING* in the current video list type **/***SOMETHING* and  
+hit **n** to get to the next or **N** to get to the previous item.  
+
+All downloaded videos are stored in *~/.videotop/videos*.
 
 # Command Table
 <table border='1'>
