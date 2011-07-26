@@ -9,28 +9,31 @@ class VideoButton(urwid.FlowWidget):
     def __init__(self, video, index, color='index'):
         self.video = video
         self.index = index
-        index = urwid.Text((color, str(self.index)))
+        index = urwid.Text(('normal', ' ' + str(self.index) + '. '), align='right')
         try:
             rounded_rating = str(round(float(self.video.rating), 1))
         except:
             rounded_rating = self.video.rating
 
-        width = 30
-        duration = self.video.formatted_duration()
-        views = urwid.Text([(color, 'Views: '), self.video.views])
-        rating = urwid.Text([(color, 'Rating: '), rounded_rating])
-        author = urwid.Text([(color, 'Author: '), self.video.author])
-        duration = urwid.Text([(color, 'Duration: '), duration, '\n'])
-        button_info = urwid.Columns([('fixed', width, author), ('fixed', width, views),
-                                     ('fixed', width, rating), ('fixed', width, duration)])
+        youtube_username_max_len = 20
+        duration = self.video.get_formatted_duration()
+        views = urwid.Text([('normal', 'Views: '), ('bold', self.video.views)])
+        rating = urwid.Text([('normal', 'Rating: '), ('bold', rounded_rating)])
+        author = urwid.Text([('normal', 'Author: '), ('bold', self.video.author)])
+        duration = urwid.Text([('normal', 'Duration: '), ('bold', duration)])
+        published = urwid.Text([('normal', 'Published: '), ('bold', self.video.published)])
+        button_info = urwid.Columns([('fixed', 20, views),
+                                     ('fixed', 16, rating),
+                                     ('fixed', 22, duration),
+                                     ('fixed', 26, published),
+                                     ('fixed', youtube_username_max_len + 8, author)])
         title = urwid.Text(self.video.title)
-        button = urwid.Pile([title, button_info])
+        empty_line = urwid.Text('')
+        button = urwid.Pile([title, button_info, empty_line])
 
-        index_width = int(len(str(self.index)) + 2)
-        if index_width == 3:
-            index_width += 1 # align the first 9 videos
+        index_width = 6
         self.display_widget = urwid.Columns([('fixed', index_width, index), button])
-        self.display_widget = urwid.AttrMap(self.display_widget, None, 'focus')
+        self.display_widget = urwid.AttrMap(self.display_widget, color, 'focus')
 
     def rows(self, size, focus=False):
         return self.display_widget.rows(size, focus)
@@ -63,6 +66,11 @@ class CommandPrompt(urwid.Edit):
     def clear(self):
         self.set_caption('')
         self.set_edit_text('')
+
+    def get_downloaded_video_list(self):
+        video_list = os.listdir(os.getcwd())
+        video_list = [os.path.splitext(video)[0] for video in video_list]
+        return video_list
 
     def keypress(self, size, key):
         if key == 'enter' and not self.get_edit_text() == '':
@@ -104,15 +112,14 @@ class CommandPrompt(urwid.Edit):
                 self.clear()
                 status_bar.set_text('Listing local videos')
                 loop.draw_screen()
-                video_list = os.listdir(os.getcwd())
-                video_list = [os.path.splitext(video)[0] for video in video_list]
-                video_list.sort()
-                videos = [client.get_local_video(video) for video in video_list]
-                listbox.append(videos, color='local_video')
+                sorted_video_list = sorted(self.get_downloaded_video_list())
+                videos = [client.get_local_video(video) for video in sorted_video_list]
+                listbox.append(videos, color='downloaded')
                 main_frame.set_focus('body')
             elif command[0] == 'clear':
+                self.clear()
                 listbox.clear()
-                self.set_edit_text('')
+                main_frame.set_focus('body')
             elif command[0].isdigit():
                 self.clear()
                 video_focus = int(command[0]) - 1
@@ -137,8 +144,13 @@ class VideoListBox(urwid.WidgetWrap):
         self.listbox = urwid.ListBox(self.body)
         urwid.WidgetWrap.__init__(self, self.listbox)
 
-    def append(self, search, color='index'):
+    def append(self, search, color='video'):
+        downloaded_videos = command_prompt.get_downloaded_video_list()
         for video in search:
+            if video.title in downloaded_videos:
+                color = 'downloaded'
+            else:
+                color = 'video'
             new_button = VideoButton(video, int(len(self.body)) + 1, color)
             self.body.append(new_button)
             loop.draw_screen()
@@ -154,7 +166,8 @@ class VideoListBox(urwid.WidgetWrap):
         return self.listbox.get_focus()[0]
 
     def search(self, pattern):
-        video_list = [video_button.video.title for video_button in self.body]
+        pattern = pattern.lower() # ignore case
+        video_list = [video_button.video.title.lower() for video_button in self.body]
         index_list = []
         for video in video_list:
             if pattern in video:
@@ -200,14 +213,14 @@ class VideoListBox(urwid.WidgetWrap):
             try:
                 self.latest_search_position += 1
                 self.listbox.set_focus(self.latest_search[self.latest_search_position])
-            except:
+            except IndexError:
                 self.latest_search_position = 0
                 self.listbox.set_focus(self.latest_search[self.latest_search_position])
         elif key == 'N':
             try:
                 self.latest_search_position -= 1
                 self.listbox.set_focus(self.latest_search[self.latest_search_position])
-            except:
+            except IndexError:
                 self.latest_search_position = len(self.latest_search) - 1
                 self.listbox.set_focus(self.latest_search[self.latest_search_position])
         else:
@@ -221,9 +234,11 @@ os.chdir(download_dir)
 palette = [('focus', 'light red', 'black', 'standout'),
           ('status', 'white', 'dark blue'),
           ('opened', 'light blue', 'black'),
-          ('downloaded', 'white', 'black'),
-          ('local_video', 'yellow', 'black'),
-          ('index', 'dark cyan', 'black')]
+          ('bold', 'white', 'black', 'bold'),
+          ('downloaded', 'light green', 'black'),
+          ('video', 'dark cyan', 'black'),
+          ('normal', 'light gray', 'black')]
+
 listbox = VideoListBox()
 command_prompt = CommandPrompt('')
 status_bar = urwid.Text('Type ":s Monty Python<Enter>" to search for "Monty Python" videos on YouTube', align='left')
@@ -232,8 +247,5 @@ main_frame = urwid.Frame(listbox)
 main_frame.set_footer(footer)
 client = youtube_client.YouTubeClient()
 
-def handle_input(input):
-    pass
-
-loop = urwid.MainLoop(main_frame, palette, unhandled_input=handle_input)
+loop = urwid.MainLoop(main_frame, palette)
 loop.run()

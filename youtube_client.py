@@ -55,6 +55,7 @@ class YouTubeVideo:
             self.duration = entry.media.duration.seconds
             self.description = entry.media.description.text
             self.author = entry.author[0].name.text
+            self.published = entry.published.text.split('T')[0]
         except:
             self.author = 'N/A' # dunno, local video
             self.duration = 'N/A'
@@ -92,11 +93,11 @@ class YouTubeVideo:
         self.file = self.title + '.mp4'
         subprocess.Popen(['mplayer', '-fs', self.file], stdout=temp, stderr=temp, stdin=temp)
 
-    def formatted_duration(self):
+    def get_formatted_duration(self):
         try:
             m, s = divmod(int(self.duration), 60)
             h, m = divmod(m, 60)
-            test = "%d:%02d:%02d" % (h, m, s)
-            return test
+            formatted_duration = "%d:%02d:%02d" % (h, m, s)
+            return formatted_duration
         except:
             return self.duration # N/A
