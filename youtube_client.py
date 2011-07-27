@@ -59,6 +59,7 @@ class YouTubeVideo:
         except:
             self.author = 'N/A' # dunno, local video
             self.duration = 'N/A'
+            self.published = 'N/A'
         try:
             self.views = entry.statistics.view_count
         except AttributeError:
