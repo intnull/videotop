@@ -17,7 +17,8 @@ class VideoButton(urwid.FlowWidget):
 
         youtube_username_max_len = 20
         duration = self.video.get_formatted_duration()
-        views = urwid.Text([('normal', 'Views: '), ('bold', self.video.views)])
+        views = self.video.get_formatted_views()
+        views = urwid.Text([('normal', 'Views: '), ('bold', views)])
         rating = urwid.Text([('normal', 'Rating: '), ('bold', rounded_rating)])
         author = urwid.Text([('normal', 'Author: '), ('bold', self.video.author)])
         duration = urwid.Text([('normal', 'Duration: '), ('bold', duration)])
@@ -47,18 +48,24 @@ class VideoButton(urwid.FlowWidget):
     def keypress(self, size, key):
         if key == 'enter':
             self.display_widget.set_attr_map({None: 'downloaded'})
-            status_bar.set_text('Downloading: ' + self.video.title)
+            status_bar.set_text(' Downloading: "' + self.video.title + '"')
             self.video.download()
         elif key == 'o':
             self.display_widget.set_attr_map({None: 'opened'})
             #self.button.set_focus_map({None: 'opened'})
-            status_bar.set_text('Opening in browser: ' + self.video.title)
+            status_bar.set_text(' Opening in browser: "' + self.video.title + '"')
             self.video.open()
         elif key == 'p':
-            status_bar.set_text('Playing: ' + self.video.title)
+            status_bar.set_text(' Playing: "' + self.video.title + '"')
             self.video.play()
+
+        elif key == 's':
+            status_bar.set_text(' Streaming: "' + self.video.title + '"')
+            loop.draw_screen()
+            self.video.stream()
+
         elif key == 'a':
-            status_bar.set_text(self.video.abort())
+            status_bar.set_text(' ' + self.video.abort())
         else:
             return key
 
@@ -73,7 +80,14 @@ class CommandPrompt(urwid.Edit):
         return video_list
 
     def keypress(self, size, key):
-        if key == 'enter' and not self.get_edit_text() == '':
+        if key == 'backspace':
+            if self.edit_text == '':
+                self.set_caption('')
+                loop.draw_screen()
+                main_frame.set_focus('body')
+            else:
+                return urwid.Edit.keypress(self, size, key)
+        elif key == 'enter' and not self.get_edit_text() == '':
             if self.caption == '/':
                 pattern = self.get_edit_text()
                 self.clear()
@@ -84,33 +98,31 @@ class CommandPrompt(urwid.Edit):
             if command[0] in ('search', 's'):
                 query = command[1]
                 self.clear()
-                status_bar.set_text('Searching for: ' + query)
+                status_bar.set_text(' Searching for: "' + query + '"')
                 loop.draw_screen()
                 search = client.search(query) # takes the most time
                 listbox.append(search)
-                status_bar.set_text(query)
+                status_bar.set_text(' ' + query)
                 main_frame.set_focus('body')
             elif command[0] in ('search_user', 'su'):
                 user = command[1]
                 self.clear()
-                status_bar.set_text('Searching for videos by: ' + user)
+                status_bar.set_text(' Searching for videos by: "' + user + '"')
                 loop.draw_screen()
                 search = client.search_user(user) # takes the most time
                 listbox.append(search)
-                status_bar.set_text(user)
+                status_bar.set_text(' ' + user)
                 main_frame.set_focus('body')
             elif command[0] == 'related':
                 self.clear()
-                status_bar.set_text('Searching for related videos...')
+                status_bar.set_text(' Searching for related videos')
                 loop.draw_screen()
-                # current_video_id should be in youtube_client.YouTubeVideo
-                current_video_id = listbox.get_focus().video.entry.id.text.split('/')[-1]
-                related_videos = client.get_related_videos(current_video_id) # takes the most time
+                related_videos = client.get_related_videos(listbox.get_focus().video)
                 listbox.append(related_videos)
                 main_frame.set_focus('body')
             elif command[0] in ('videos', 'v'):
                 self.clear()
-                status_bar.set_text('Listing local videos')
+                status_bar.set_text(' Listing downloaded videos')
                 loop.draw_screen()
                 sorted_video_list = sorted(self.get_downloaded_video_list())
                 videos = [client.get_local_video(video) for video in sorted_video_list]
@@ -128,9 +140,9 @@ class CommandPrompt(urwid.Edit):
             elif command[0] in ('quit', 'q'):
                 raise urwid.ExitMainLoop()
             else:
-                status_bar.set_text('Error, there is no command named "' + command[0] + '"')
+                status_bar.set_text(' Error: There is no command named "' + command[0] + '"')
                 pass
-        if key in ('esc', 'ctrl x'):
+        elif key in ('esc', 'ctrl x'):
             main_frame.set_focus('body')
             self.clear()
         else:
@@ -156,7 +168,7 @@ class VideoListBox(urwid.WidgetWrap):
             loop.draw_screen()
 
     def clear(self):
-        status_bar.set_text('Cleared the screen.')
+        status_bar.set_text(' Cleared the screen')
         self.body[:] = []
 
     def set_focus(self, position):
@@ -178,7 +190,7 @@ class VideoListBox(urwid.WidgetWrap):
             first_result = self.latest_search[self.latest_search_position]
             self.set_focus(first_result)
         except:
-            status_bar.set_text('Error, could not find pattern "' + pattern + '"')
+            status_bar.set_text(' Error, could not find pattern "' + pattern + '"')
         main_frame.set_focus('body')
 
     def keypress(self, size, key):
@@ -241,7 +253,7 @@ palette = [('focus', 'light red', 'black', 'standout'),
 
 listbox = VideoListBox()
 command_prompt = CommandPrompt('')
-status_bar = urwid.Text('Type ":s Monty Python<Enter>" to search for "Monty Python" videos on YouTube', align='left')
+status_bar = urwid.Text(' Type ":s Monty Python<Enter>" to search for "Monty Python" videos on YouTube', align='left')
 footer = urwid.Pile([urwid.AttrMap(status_bar, 'status'), command_prompt])
 main_frame = urwid.Frame(listbox)
 main_frame.set_footer(footer)
