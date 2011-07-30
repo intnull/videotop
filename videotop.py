@@ -58,12 +58,6 @@ class VideoButton(urwid.FlowWidget):
         elif key == 'p':
             status_bar.set_text(' Playing: "' + self.video.title + '"')
             self.video.play()
-
-        elif key == 's':
-            status_bar.set_text(' Streaming: "' + self.video.title + '"')
-            loop.draw_screen()
-            self.video.stream()
-
         elif key == 'a':
             status_bar.set_text(' ' + self.video.abort())
         else:
@@ -103,22 +97,6 @@ class CommandPrompt(urwid.Edit):
                 search = client.search(query) # takes the most time
                 listbox.append(search)
                 status_bar.set_text(' ' + query)
-                main_frame.set_focus('body')
-            elif command[0] in ('search_user', 'su'):
-                user = command[1]
-                self.clear()
-                status_bar.set_text(' Searching for videos by: "' + user + '"')
-                loop.draw_screen()
-                search = client.search_user(user) # takes the most time
-                listbox.append(search)
-                status_bar.set_text(' ' + user)
-                main_frame.set_focus('body')
-            elif command[0] == 'related':
-                self.clear()
-                status_bar.set_text(' Searching for related videos')
-                loop.draw_screen()
-                related_videos = client.get_related_videos(listbox.get_focus().video)
-                listbox.append(related_videos)
                 main_frame.set_focus('body')
             elif command[0] in ('videos', 'v'):
                 self.clear()

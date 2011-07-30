@@ -8,7 +8,6 @@ import webbrowser
 import tempfile
 import subprocess
 import locale
-import time
 
 locale.setlocale(locale.LC_ALL, 'en_US')
 
@@ -34,13 +33,6 @@ class YouTubeClient:
             videos.append(new_video)
         return videos
 
-    def search_user(self, username):
-        return self.get_videos(self.yt_service.GetYouTubeUserFeed(username=username))
-
-    def get_related_videos(self, video):
-        related_feed = self.yt_service.GetYouTubeRelatedVideoFeed(video_id=video.id)
-        return self.get_videos(related_feed)
-
     def next_page(self):
         return self.search(self.last_search[0], self.last_search[1] + 1)
 
@@ -51,8 +43,6 @@ class YouTubeClient:
         return YouTubeVideo(video_entry)
 
 class YouTubeVideo:
-    last_streamed = None
-
     def __init__(self, entry):
         self.entry = entry
         self.title = entry.media.title.text
@@ -81,17 +71,10 @@ class YouTubeVideo:
     def open(self):
         webbrowser.open_new_tab(self.url)
 
-    def download(self, destination=None):
-        # TODO: replace this function by importing youtube-dl as a python module
+    def download(self):
         # max-quality=34 means 360p, 35: 480p, 22: 720p, 37: 1080p
-        if destination:
-            # streaming 360p
-            output = '--output=' + destination
-            max_quality = '--max-quality=34'
-        else:
-            # downloading 480p
-            output = '--output=%(title)s.%(ext)s'
-            max_quality = '--max-quality=35'
+        output = '--output=%(title)s.%(ext)s'
+        max_quality = '--max-quality=35'
         command = ['youtube-dl', '--no-part', '--continue', max_quality, output, self.id]
         temp = tempfile.TemporaryFile()
         self.download_process = subprocess.Popen(command, stdout=temp, stderr=temp)
@@ -118,24 +101,11 @@ class YouTubeVideo:
         except ValueError:
             return self.views
 
-    def play(self, file=None):
+    def play(self):
         temp = tempfile.TemporaryFile()
         #fullscreen = '-fs'
         fullscreen = ''
-        if file:
-            subprocess.Popen(['mplayer', fullscreen, file], stdout=temp, stderr=temp, stdin=temp)
-        else:
-            file = self.title + '.flv'
-            subprocess.Popen(['mplayer', fullscreen, file], stdout=temp, stderr=temp, stdin=temp)
-            file = self.title + '.mp4'
-            subprocess.Popen(['mplayer', fullscreen, file], stdout=temp, stderr=temp, stdin=temp)
-
-    def stream(self):
-        # TODO: replace this function with gstreamer
-        streamfile = '/tmp/videotop'
-        self.download(streamfile)
-        if self.id != YouTubeVideo.last_streamed:
-            # buffer video 10 seconds
-            time.sleep(10)
-        self.play(streamfile)
-        YouTubeVideo.last_streamed = self.id
+        file = self.title + '.flv'
+        subprocess.Popen(['mplayer', fullscreen, file], stdout=temp, stderr=temp, stdin=temp)
+        file = self.title + '.mp4'
+        subprocess.Popen(['mplayer', fullscreen, file], stdout=temp, stderr=temp, stdin=temp)
