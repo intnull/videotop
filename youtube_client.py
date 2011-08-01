@@ -73,7 +73,8 @@ class YouTubeVideo:
 
     def download(self):
         # max-quality=34 means 360p, 35: 480p, 22: 720p, 37: 1080p
-        output = '--output=%(title)s.%(ext)s'
+        filename = self.title + '.%(ext)s'
+        output = '--output=' + filename
         max_quality = '--max-quality=35'
         command = ['youtube-dl', '--no-part', '--continue', max_quality, output, self.id]
         temp = tempfile.TemporaryFile()
