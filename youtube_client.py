@@ -37,6 +37,8 @@ class YouTubeClient:
         return self.search(self.last_search[0], self.last_search[1] + 1)
 
     def get_local_video(self, video_title):
+        # replace html code &#47; with slashes
+        video_title = video_title.replace('&#47;', '/')
         title = gdata.media.Title(text=video_title)
         group = gdata.media.Group(title=title)
         video_entry = gdata.youtube.YouTubeVideoEntry(media=group)
@@ -46,18 +48,18 @@ class YouTubeVideo:
     def __init__(self, entry):
         self.entry = entry
         self.title = entry.media.title.text
+        # replace slashes with html code &#47;
+        self.filename = self.title.replace('/', '&#47;')
         try:
             self.url = entry.media.player.url
             self.duration = entry.media.duration.seconds
             self.description = entry.media.description.text
             self.author = entry.author[0].name.text
             self.published = entry.published.text.split('T')[0]
-            self.id = entry.id.text.split('/')[-1]
         except:
             self.author = 'N/A' # dunno, local video
             self.duration = 'N/A'
             self.published = 'N/A'
-            self.id = 'N/A'
         try:
             self.views = entry.statistics.view_count
         except AttributeError:
@@ -73,10 +75,10 @@ class YouTubeVideo:
 
     def download(self):
         # max-quality=34 means 360p, 35: 480p, 22: 720p, 37: 1080p
-        filename = self.title + '.%(ext)s'
-        output = '--output=' + filename
+        file = self.filename + '.%(ext)s'
+        output = '--output=' + file
         max_quality = '--max-quality=35'
-        command = ['youtube-dl', '--no-part', '--continue', max_quality, output, self.id]
+        command = ['youtube-dl', '--no-part', '--continue', max_quality, output, self.url]
         temp = tempfile.TemporaryFile()
         self.download_process = subprocess.Popen(command, stdout=temp, stderr=temp)
 
@@ -106,7 +108,7 @@ class YouTubeVideo:
         temp = tempfile.TemporaryFile()
         #fullscreen = '-fs'
         fullscreen = ''
-        file = self.title + '.flv'
+        file = self.filename + '.flv'
         subprocess.Popen(['mplayer', fullscreen, file], stdout=temp, stderr=temp, stdin=temp)
-        file = self.title + '.mp4'
+        file = self.filename + '.mp4'
         subprocess.Popen(['mplayer', fullscreen, file], stdout=temp, stderr=temp, stdin=temp)

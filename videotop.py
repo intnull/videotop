@@ -137,7 +137,7 @@ class VideoListBox(urwid.WidgetWrap):
     def append(self, search, color='video'):
         downloaded_videos = command_prompt.get_downloaded_video_list()
         for video in search:
-            if video.title in downloaded_videos:
+            if video.filename in downloaded_videos:
                 color = 'downloaded'
             else:
                 color = 'video'
