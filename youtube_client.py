@@ -8,6 +8,7 @@ import webbrowser
 import tempfile
 import subprocess
 import locale
+import download_thread
 
 locale.setlocale(locale.LC_ALL, 'en_US')
 
@@ -21,10 +22,14 @@ class YouTubeClient:
         self.last_search = [search_terms, page]
         query = gdata.youtube.service.YouTubeVideoQuery()
         query.vq = search_terms
-        query.start_index = (page - 1) * int(self.max_results) + 1 # query.start_index is 1 based
+        # query.start_index is 1 based
+        query.start_index = (page - 1) * int(self.max_results) + 1
         query.max_results = self.max_results
-        feed = self.yt_service.YouTubeQuery(query)
-        return self.get_videos(feed)
+        try:
+            feed = self.yt_service.YouTubeQuery(query)
+            return self.get_videos(feed)
+        except gdata.service.RequestError:
+            return []
 
     def get_videos(self, feed):
         videos = []
@@ -45,6 +50,8 @@ class YouTubeClient:
         return YouTubeVideo(video_entry)
 
 class YouTubeVideo:
+    downloads = []
+
     def __init__(self, entry):
         self.entry = entry
         self.title = entry.media.title.text
@@ -57,7 +64,8 @@ class YouTubeVideo:
             self.author = entry.author[0].name.text
             self.published = entry.published.text.split('T')[0]
         except:
-            self.author = 'N/A' # dunno, local video
+            # dunno, local video
+            self.author = 'N/A'
             self.duration = 'N/A'
             self.published = 'N/A'
         try:
@@ -74,20 +82,16 @@ class YouTubeVideo:
         webbrowser.open_new_tab(self.url)
 
     def download(self):
-        # max-quality=34 means 360p, 35: 480p, 22: 720p, 37: 1080p
-        file = self.filename + '.%(ext)s'
-        output = '--output=' + file
-        max_quality = '--max-quality=35'
-        command = ['youtube-dl', '--no-part', '--continue', max_quality, output, self.url]
-        temp = tempfile.TemporaryFile()
-        self.download_process = subprocess.Popen(command, stdout=temp, stderr=temp)
+        self.dl = download_thread.DownloadThread(self.filename, self.url)
+        self.dl.start()
+        YouTubeVideo.downloads.append(self)
 
     def abort(self):
         try:
-            self.download_process.kill()
-            return 'aborted download ' + self.title
+            self.dl.kill()
+            return 'Aborted downloading "' + self.title + '"'
         except:
-            return 'aborting download failed'
+            return 'Aborting downloading "' + self.title + '" failed'
 
     def get_formatted_duration(self):
         try:
@@ -96,7 +100,7 @@ class YouTubeVideo:
             formatted_duration = "%d:%02d:%02d" % (h, m, s)
             return formatted_duration
         except:
-            return self.duration # N/A
+            return self.duration
 
     def get_formatted_views(self):
         try:
@@ -106,9 +110,7 @@ class YouTubeVideo:
 
     def play(self):
         temp = tempfile.TemporaryFile()
-        #fullscreen = '-fs'
-        fullscreen = ''
         file = self.filename + '.flv'
-        subprocess.Popen(['mplayer', fullscreen, file], stdout=temp, stderr=temp, stdin=temp)
+        subprocess.Popen(['mplayer', file], stdout=temp, stderr=temp, stdin=temp)
         file = self.filename + '.mp4'
-        subprocess.Popen(['mplayer', fullscreen, file], stdout=temp, stderr=temp, stdin=temp)
+        subprocess.Popen(['mplayer', file], stdout=temp, stderr=temp, stdin=temp)

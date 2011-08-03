@@ -20,14 +20,15 @@ All downloaded videos are stored in *~/.videotop/videos*.
 # Command Table
 <table border='1'>
 <tr><th>Command Mode</th><th>Browse Mode</th><th>Description</th></tr>
-<tr><td>:search, :s</td><td>s</td><td>Search for videos and switch to browse mode</td></tr>
-<tr><td>:clear</td><td>CTRL r</td><td>Clear the video list and switch to command mode</td></tr>
-<tr><td>:videos, :v</td><td></td><td>Show the downloaded videos and switch to browse mode</td></tr>
-<tr><td>:13</td><td></td><td>Select video 13 and switch to browse mode</td></tr>
+<tr><td>:search, :s</td><td></td><td>Search for videos</td></tr>
+<tr><td>:videos, :v</td><td></td><td>Show all downloaded videos</td></tr>
+<tr><td>:13</td><td></td><td>Select video 13</td></tr>
+<tr><td>:clear</td><td>CTRL r</td><td>Clear the video list</td></tr>
 <tr><td></td><td>CTRL n</td><td>List the next videos of the previous search</td></tr>
 <tr><td></td><td>ENTER</td><td>Download the selected video</td></tr>
-<tr><td></td><td>o</td><td>Open the youtube site of the selected video in firefox</td></tr>
-<tr><td></td><td>p</td><td>Play the selected video with mplayer</td></tr>
+<tr><td></td><td>a</td><td>Abort downloading the selected video</td></tr>
+<tr><td></td><td>o</td><td>Open the YouTube page of the selected video in your default web browser</td></tr>
+<tr><td></td><td>p</td><td>Play the selected video with MPlayer</td></tr>
 <tr><td></td><td>j</td><td>Move down</td></tr>
 <tr><td></td><td>k</td><td>Move up</td></tr>
 <tr><td></td><td>CTRL d</td><td>Move down</td></tr>

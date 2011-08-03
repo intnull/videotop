@@ -6,6 +6,8 @@ import urwid
 import youtube_client
 
 class VideoButton(urwid.FlowWidget):
+    clicked_buttons = []
+
     def __init__(self, video, index, color='index'):
         self.video = video
         self.index = index
@@ -29,11 +31,11 @@ class VideoButton(urwid.FlowWidget):
                                      ('fixed', 26, published),
                                      ('fixed', youtube_username_max_len + 8, author)])
         title = urwid.Text(self.video.title)
-        empty_line = urwid.Text('')
-        button = urwid.Pile([title, button_info, empty_line])
+        self.empty_line = urwid.Text('')
+        self.button = urwid.Pile([title, button_info, self.empty_line])
 
         index_width = 6
-        self.display_widget = urwid.Columns([('fixed', index_width, index), button])
+        self.display_widget = urwid.Columns([('fixed', index_width, index), self.button])
         self.display_widget = urwid.AttrMap(self.display_widget, color, 'focus')
 
     def rows(self, size, focus=False):
@@ -50,9 +52,9 @@ class VideoButton(urwid.FlowWidget):
             self.display_widget.set_attr_map({None: 'downloaded'})
             status_bar.set_text(' Downloading: "' + self.video.title + '"')
             self.video.download()
+            VideoButton.clicked_buttons.append(self)
         elif key == 'o':
             self.display_widget.set_attr_map({None: 'opened'})
-            #self.button.set_focus_map({None: 'opened'})
             status_bar.set_text(' Opening in browser: "' + self.video.title + '"')
             self.video.open()
         elif key == 'p':
@@ -90,14 +92,23 @@ class CommandPrompt(urwid.Edit):
             command = self.get_edit_text()
             command = command.split(' ', 1)
             if command[0] in ('search', 's'):
-                query = command[1]
-                self.clear()
-                status_bar.set_text(' Searching for: "' + query + '"')
-                loop.draw_screen()
-                search = client.search(query) # takes the most time
-                listbox.append(search)
-                status_bar.set_text(' ' + query)
-                main_frame.set_focus('body')
+                try:
+                    self.clear()
+                    query = command[1]
+                    status_bar.set_text(' Searching for: "' + query + '"')
+                    loop.draw_screen()
+                    search = client.search(query)
+                    if search != []:
+                        listbox.append(search)
+                        status_bar.set_text(' ' + query)
+                    else:
+                        status_bar.set_text(' Please also enter what to search for')
+                        loop.draw_screen()
+                    main_frame.set_focus('body')
+                except IndexError:
+                    status_bar.set_text(' Please also enter what to search for')
+                    loop.draw_screen()
+                    main_frame.set_focus('body')
             elif command[0] in ('videos', 'v'):
                 self.clear()
                 status_bar.set_text(' Listing downloaded videos')
@@ -156,7 +167,8 @@ class VideoListBox(urwid.WidgetWrap):
         return self.listbox.get_focus()[0]
 
     def search(self, pattern):
-        pattern = pattern.lower() # ignore case
+        # ignore case
+        pattern = pattern.lower()
         video_list = [video_button.video.title.lower() for video_button in self.body]
         index_list = []
         for video in video_list:
@@ -216,26 +228,45 @@ class VideoListBox(urwid.WidgetWrap):
         else:
             return self.listbox.keypress(size, key)
 
-# change to download directory
-home_dir = os.environ['HOME']
-download_dir = os.path.join(home_dir, '.videotop/videos')
-os.chdir(download_dir)
+def update(main_loop, user_data):
+    # shows download progress of each video every half a second
+    for video in youtube_client.YouTubeVideo.downloads:
+        if video.dl.updated:
+            video.dl.updated = False
+            # search corresponding buttons and update download status
+            for button in VideoButton.clicked_buttons:
+                if button.video == video:
+                    button.empty_line.set_text(('downloading', video.dl.progress))
+    loop.set_alarm_in(0.5, update)
 
-palette = [('focus', 'light red', 'black', 'standout'),
-          ('status', 'white', 'dark blue'),
-          ('opened', 'light blue', 'black'),
-          ('bold', 'white', 'black', 'bold'),
-          ('downloaded', 'light green', 'black'),
-          ('video', 'dark cyan', 'black'),
-          ('normal', 'light gray', 'black')]
+if __name__ == '__main__':
+    # change to download directory
+    home_dir = os.environ['HOME']
+    download_dir = os.path.join(home_dir, '.videotop/videos')
+    os.chdir(download_dir)
 
-listbox = VideoListBox()
-command_prompt = CommandPrompt('')
-status_bar = urwid.Text(' Type ":s Monty Python<Enter>" to search for "Monty Python" videos on YouTube', align='left')
-footer = urwid.Pile([urwid.AttrMap(status_bar, 'status'), command_prompt])
-main_frame = urwid.Frame(listbox)
-main_frame.set_footer(footer)
-client = youtube_client.YouTubeClient()
+    palette = [('focus', 'light red', 'black', 'standout'),
+              ('status', 'white', 'dark blue'),
+              ('opened', 'light blue', 'black'),
+              ('bold', 'white', 'black', 'bold'),
+              ('downloaded', 'light green', 'black'),
+              ('downloading', 'light blue', 'black'),
+              ('video', 'dark cyan', 'black'),
+              ('normal', 'light gray', 'black')]
 
-loop = urwid.MainLoop(main_frame, palette)
-loop.run()
+    listbox = VideoListBox()
+    command_prompt = CommandPrompt('')
+    welcome_message = ' Type ":s Monty Python<Enter>" to search for "Monty Python" videos on YouTube'
+    status_bar = urwid.Text(welcome_message, align='left')
+    footer = urwid.Pile([urwid.AttrMap(status_bar, 'status'), command_prompt])
+    main_frame = urwid.Frame(listbox)
+    main_frame.set_footer(footer)
+    client = youtube_client.YouTubeClient()
+
+    loop = urwid.MainLoop(main_frame, palette)
+    loop.set_alarm_in(0, update)
+    loop.run()
+
+    # cancel all downloads
+    for video in youtube_client.YouTubeVideo.downloads:
+        video.dl.kill()
