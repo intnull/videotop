@@ -1,7 +1,3 @@
-# Documentation and tutorial on gdata.youtube module
-# http://code.google.com/apis/youtube/1.0/developers_guide_python.html
-# http://www.webmonkey.com/2010/02/youtube_tutorial_lesson_2_the_data_api/
-
 import gdata.youtube
 import gdata.youtube.service
 import webbrowser
@@ -11,6 +7,7 @@ import locale
 import download_thread
 
 locale.setlocale(locale.LC_ALL, 'en_US')
+
 
 class YouTubeClient:
     def __init__(self):
@@ -48,6 +45,7 @@ class YouTubeClient:
         group = gdata.media.Group(title=title)
         video_entry = gdata.youtube.YouTubeVideoEntry(media=group)
         return YouTubeVideo(video_entry)
+
 
 class YouTubeVideo:
     downloads = []
@@ -110,7 +108,7 @@ class YouTubeVideo:
 
     def play(self):
         temp = tempfile.TemporaryFile()
-        file = self.filename + '.flv'
-        subprocess.Popen(['mplayer', file], stdout=temp, stderr=temp, stdin=temp)
-        file = self.filename + '.mp4'
-        subprocess.Popen(['mplayer', file], stdout=temp, stderr=temp, stdin=temp)
+        extensions = ['.flv', '.mp4', '.webm']
+        for ext in extensions:
+            file = self.filename + ext
+            subprocess.Popen(['mplayer', file], stdout=temp, stderr=temp, stdin=temp)

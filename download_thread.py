@@ -1,7 +1,6 @@
-#!/usr/bin/python2
-
 import threading
 from subprocess import Popen, PIPE
+
 
 class DownloadThread(threading.Thread):
     def __init__(self, title, url):

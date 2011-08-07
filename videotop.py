@@ -5,6 +5,7 @@ import os
 import urwid
 import youtube_client
 
+
 class VideoButton(urwid.FlowWidget):
     clicked_buttons = []
 
@@ -64,6 +65,7 @@ class VideoButton(urwid.FlowWidget):
             status_bar.set_text(' ' + self.video.abort())
         else:
             return key
+
 
 class CommandPrompt(urwid.Edit):
     def clear(self):
@@ -136,6 +138,7 @@ class CommandPrompt(urwid.Edit):
             self.clear()
         else:
             return urwid.Edit.keypress(self, size, key)
+
 
 class VideoListBox(urwid.WidgetWrap):
     def __init__(self):
@@ -228,6 +231,7 @@ class VideoListBox(urwid.WidgetWrap):
         else:
             return self.listbox.keypress(size, key)
 
+
 def update(main_loop, user_data):
     # shows download progress of each video every half a second
     for video in youtube_client.YouTubeVideo.downloads:
@@ -237,9 +241,10 @@ def update(main_loop, user_data):
             for button in VideoButton.clicked_buttons:
                 if button.video == video:
                     button.empty_line.set_text(('downloading', video.dl.progress))
-    loop.set_alarm_in(0.5, update)
+    main_loop.set_alarm_in(0.5, update)
 
-if __name__ == '__main__':
+
+def main():
     # change to download directory
     home_dir = os.environ['HOME']
     download_dir = os.path.join(home_dir, '.videotop/videos')
@@ -253,6 +258,13 @@ if __name__ == '__main__':
               ('downloading', 'light blue', 'black'),
               ('video', 'dark cyan', 'black'),
               ('normal', 'light gray', 'black')]
+
+    global listbox
+    global command_prompt
+    global status_bar
+    global main_frame
+    global client
+    global loop
 
     listbox = VideoListBox()
     command_prompt = CommandPrompt('')
@@ -270,3 +282,7 @@ if __name__ == '__main__':
     # cancel all downloads
     for video in youtube_client.YouTubeVideo.downloads:
         video.dl.kill()
+
+
+if __name__ == '__main__':
+    main()
