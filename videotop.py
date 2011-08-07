@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import errno
 import urwid
 import youtube_client
 
@@ -245,9 +246,17 @@ def update(main_loop, user_data):
 
 
 def main():
-    # change to download directory
+    # create the download directory if it doesn't exist already
     home_dir = os.environ['HOME']
     download_dir = os.path.join(home_dir, '.videotop/videos')
+    try:
+        os.makedirs(download_dir)
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            pass
+        else:
+            raise
+    # change to download directory
     os.chdir(download_dir)
 
     palette = [('focus', 'light red', 'black', 'standout'),
