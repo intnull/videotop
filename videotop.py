@@ -158,7 +158,6 @@ class VideoListBox(urwid.WidgetWrap):
                 color = 'video'
             new_button = VideoButton(video, int(len(self.body)) + 1, color)
             self.body.append(new_button)
-            loop.draw_screen()
 
     def clear(self):
         status_bar.set_text(' Cleared the screen')

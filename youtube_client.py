@@ -111,4 +111,4 @@ class YouTubeVideo:
         extensions = ['.flv', '.mp4', '.webm']
         for ext in extensions:
             file = self.filename + ext
-            subprocess.Popen(['mplayer', file], stdout=temp, stderr=temp, stdin=temp)
+            subprocess.Popen(['mplayer', '-use-filename-title', file], stdout=temp, stderr=temp, stdin=temp)
