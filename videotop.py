@@ -62,6 +62,11 @@ class VideoButton(urwid.FlowWidget):
         elif key == 'p':
             status_bar.set_text(' Playing: "' + self.video.title + '"')
             self.video.play()
+        elif key == 's':
+            self.display_widget.set_attr_map({None: 'streamed'})
+            status_bar.set_text(' Streaming: "' + self.video.title + '"')
+            loop.draw_screen()
+            self.video.stream()
         elif key == 'a':
             status_bar.set_text(' ' + self.video.abort())
         else:
@@ -261,6 +266,7 @@ def main():
     palette = [('focus', 'light red', 'black', 'standout'),
               ('status', 'white', 'dark blue'),
               ('opened', 'light blue', 'black'),
+              ('streamed', 'light blue', 'black'),
               ('bold', 'white', 'black', 'bold'),
               ('downloaded', 'light green', 'black'),
               ('downloading', 'light blue', 'black'),

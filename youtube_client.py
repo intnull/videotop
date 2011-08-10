@@ -111,4 +111,10 @@ class YouTubeVideo:
         extensions = ['.flv', '.mp4', '.webm']
         for ext in extensions:
             file = self.filename + ext
-            subprocess.Popen(['mplayer', '-use-filename-title', file], stdout=temp, stderr=temp, stdin=temp)
+            subprocess.Popen(['mplayer', '-msglevel', 'all=-1', '-use-filename-title', file], stdin=temp)
+
+    def stream(self):
+        title = self.title.replace('"', '\'')
+        cmd = 'mplayer -title "%s" -prefer-ipv4 -cookies -cookies-file /tmp/videotop_cookie \
+               $(youtube-dl --get-url --max-quality=34 --cookies=/tmp/videotop_cookie "%s")' % (title, self.url)
+        subprocess.call(cmd, shell=True)
