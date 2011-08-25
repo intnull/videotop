@@ -1,12 +1,13 @@
 import gdata.youtube
 import gdata.youtube.service
 import webbrowser
-import tempfile
 import subprocess
 import locale
 import download_thread
+import os
 
-locale.setlocale(locale.LC_ALL, 'en_US')
+
+locale.setlocale(locale.LC_ALL, '')
 
 
 class YouTubeClient:
@@ -107,14 +108,18 @@ class YouTubeVideo:
             return self.views
 
     def play(self):
-        temp = tempfile.TemporaryFile()
+        devnull = open(os.devnull)
         extensions = ['.flv', '.mp4', '.webm']
         for ext in extensions:
             file = self.filename + ext
-            subprocess.Popen(['mplayer', '-msglevel', 'all=-1', '-use-filename-title', file], stdin=temp)
+            if os.path.exists(file):
+                subprocess.Popen(['mplayer', '-msglevel', 'all=-1', '-use-filename-title', file], stdin=devnull)
+                return True
+        return False
 
     def stream(self):
-        title = self.title.replace('"', '\'')
-        cmd = 'mplayer -title "%s" -prefer-ipv4 -cookies -cookies-file /tmp/videotop_cookie \
-               $(youtube-dl --get-url --max-quality=34 --cookies=/tmp/videotop_cookie "%s")' % (title, self.url)
-        subprocess.call(cmd, shell=True)
+        cookie = '/tmp/videotop_cookie'
+        c1 = ['youtube-dl', '--get-url', '--max-quality=34', '--cookies=' + cookie, self.url]
+        stream = subprocess.check_output(c1).strip()
+        c2 = ['mplayer', '-title', self.title, '-prefer-ipv4', '-cookies', '-cookies-file', cookie, stream]
+        subprocess.call(c2)

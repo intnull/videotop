@@ -7,6 +7,10 @@ import urwid
 import youtube_client
 
 
+import socket # socket.gaierror
+import subprocess # subprocess.CalledProcessError
+
+
 class VideoButton(urwid.FlowWidget):
     clicked_buttons = []
 
@@ -53,20 +57,33 @@ class VideoButton(urwid.FlowWidget):
         if key == 'enter':
             self.display_widget.set_attr_map({None: 'downloaded'})
             status_bar.set_text(' Downloading: "' + self.video.title + '"')
-            self.video.download()
-            VideoButton.clicked_buttons.append(self)
+            try:
+                self.video.download()
+                VideoButton.clicked_buttons.append(self)
+            except AttributeError:
+                status_bar.set_text(' Local videos do not support redownloading yet')
         elif key == 'o':
             self.display_widget.set_attr_map({None: 'opened'})
             status_bar.set_text(' Opening in browser: "' + self.video.title + '"')
-            self.video.open()
+            try:
+                self.video.open()
+            except AttributeError:
+                status_bar.set_text(' Local videos do not support opening their YouTube site yet')
         elif key == 'p':
             status_bar.set_text(' Playing: "' + self.video.title + '"')
-            self.video.play()
+            if not self.video.play():
+                status_bar.set_text(' You must download "' + self.video.title + '"' + ' first before you can play it')
         elif key == 's':
             self.display_widget.set_attr_map({None: 'streamed'})
             status_bar.set_text(' Streaming: "' + self.video.title + '"')
             loop.draw_screen()
-            self.video.stream()
+            try:
+                self.video.stream()
+            except AttributeError:
+                status_bar.set_text(' Local videos do not support streaming yet')
+            except subprocess.CalledProcessError:
+                status_bar.set_text(' You probably lost your internet connection')
+                main_frame.set_focus('body')
         elif key == 'a':
             status_bar.set_text(' ' + self.video.abort())
         else:
@@ -116,6 +133,9 @@ class CommandPrompt(urwid.Edit):
                 except IndexError:
                     status_bar.set_text(' Please also enter what to search for')
                     loop.draw_screen()
+                    main_frame.set_focus('body')
+                except socket.gaierror:
+                    status_bar.set_text(' You probably lost your internet connection')
                     main_frame.set_focus('body')
             elif command[0] in ('videos', 'v'):
                 self.clear()
@@ -189,6 +209,8 @@ class VideoListBox(urwid.WidgetWrap):
             self.set_focus(first_result)
         except:
             status_bar.set_text(' Error, could not find pattern "' + pattern + '"')
+            self.latest_search = None
+            self.latest_search_position = None
         main_frame.set_focus('body')
 
     def keypress(self, size, key):
@@ -203,22 +225,43 @@ class VideoListBox(urwid.WidgetWrap):
         elif key == 'k':
             self.listbox.keypress(size, 'up')
         elif key == 'g':
-            self.listbox.change_focus(size, 0)
+            try:
+                self.listbox.change_focus(size, 0)
+            except AttributeError:
+                pass
         elif key == 'G':
-            self.listbox.change_focus(size, len(self.body) - 1)
+            try:
+                self.listbox.change_focus(size, len(self.body) - 1)
+            except AttributeError:
+                pass
         elif key == 'ctrl d':
-            position = self.listbox.get_focus()[1] + 5
-            self.listbox.set_focus(position, 'above')
+            try:
+                position = self.listbox.get_focus()[1] + 5
+                self.listbox.set_focus(position, 'above')
+            except TypeError:
+                pass
         elif key == 'ctrl u':
-            position = self.listbox.get_focus()[1] - 5
-            if position < 0:
-                position = 0
-            self.listbox.set_focus(position, 'below')
+            try:
+                position = self.listbox.get_focus()[1] - 5
+                if position < 0:
+                    position = 0
+                self.listbox.set_focus(position, 'below')
+            except TypeError:
+                pass
         elif key == 'ctrl r':
             self.clear()
         elif key == 'ctrl n':
-            search = client.next_page()
-            self.append(search)
+            try:
+                status_bar.set_text(' Listing next videos please wait...')
+                loop.draw_screen()
+                search = client.next_page()
+                status_bar.set_text('')
+                self.append(search)
+            except TypeError:
+                status_bar.set_text(' You need to search for something before you do that!')
+            except socket.gaierror:
+                status_bar.set_text(' You probably lost your internet connection')
+                main_frame.set_focus('body')
         elif key == 'n':
             try:
                 self.latest_search_position += 1
@@ -226,6 +269,8 @@ class VideoListBox(urwid.WidgetWrap):
             except IndexError:
                 self.latest_search_position = 0
                 self.listbox.set_focus(self.latest_search[self.latest_search_position])
+            except TypeError:
+                pass
         elif key == 'N':
             try:
                 self.latest_search_position -= 1
@@ -233,6 +278,8 @@ class VideoListBox(urwid.WidgetWrap):
             except IndexError:
                 self.latest_search_position = len(self.latest_search) - 1
                 self.listbox.set_focus(self.latest_search[self.latest_search_position])
+            except TypeError:
+                pass
         else:
             return self.listbox.keypress(size, key)
 
@@ -250,7 +297,7 @@ def update(main_loop, user_data):
 
 
 def main():
-    # create the download directory if it doesn't exist already
+    # create the download directory if it doesn't already exist
     home_dir = os.environ['HOME']
     download_dir = os.path.join(home_dir, '.videotop/videos')
     try:
@@ -260,7 +307,7 @@ def main():
             pass
         else:
             raise
-    # change to download directory
+    # change working directory to download directory
     os.chdir(download_dir)
 
     palette = [('focus', 'light red', 'black', 'standout'),
