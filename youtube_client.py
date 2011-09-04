@@ -121,5 +121,5 @@ class YouTubeVideo:
         cookie = '/tmp/videotop_cookie'
         c1 = ['youtube-dl', '--get-url', '--max-quality=34', '--cookies=' + cookie, self.url]
         stream = subprocess.check_output(c1).strip()
-        c2 = ['mplayer', '-title', self.title, '-prefer-ipv4', '-cookies', '-cookies-file', cookie, stream]
+        c2 = ['mplayer', '-msgcolor', '-title', self.title, '-prefer-ipv4', '-cookies', '-cookies-file', cookie, stream]
         subprocess.call(c2)

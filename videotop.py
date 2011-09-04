@@ -125,10 +125,12 @@ class CommandPrompt(urwid.Edit):
                     search = client.search(query)
                     if search != []:
                         listbox.append(search)
-                        status_bar.set_text(' ' + query)
+                        search_begin = len(listbox.body) - len(search)
+                        listbox.set_focus(search_begin)
+                        status_bar.set_text(' "' + query + 
+                            '" (' + str(search_begin + 1) + ' - ' + str(len(listbox.body)) + ')')
                     else:
-                        status_bar.set_text(' Please also enter what to search for')
-                        loop.draw_screen()
+                        status_bar.set_text(' No results found for: "' + query + '"')
                     main_frame.set_focus('body')
                 except IndexError:
                     status_bar.set_text(' Please also enter what to search for')
