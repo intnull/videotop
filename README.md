@@ -16,6 +16,10 @@ You can also open the YouTube page by hitting **o** or directly stream the video
 
 To search for the string *SOMETHING* in the current video list type **/***SOMETHING* and  
 hit **n** to get to the next or **N** to get to the previous item.  
+With the command **:videos** or just **:v** all downloaded videos will be listed. A pattern can also be specified, so
+**:v monty** will list all videos containing the substring *monty*.  
+Since local searches are case-insensitive, the commands **:v monty** and **:v Monty** (or **/monty** and **/MONTY**) are
+equivalent.  
 
 All downloaded videos are stored in *~/.videotop/videos*.
 

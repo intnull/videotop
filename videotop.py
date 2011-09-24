@@ -91,6 +91,12 @@ class VideoButton(urwid.FlowWidget):
 
 
 class CommandPrompt(urwid.Edit):
+
+    def __init__(self):
+        urwid.Edit.__init__(self, '')
+        self.history = []
+        self.history_offset = 0
+
     def clear(self):
         self.set_caption('')
         self.set_edit_text('')
@@ -115,6 +121,11 @@ class CommandPrompt(urwid.Edit):
                 listbox.search(pattern)
                 return
             command = self.get_edit_text()
+
+            # add command to history
+            self.history.append(command)
+            self.history_offset = 0
+
             command = command.split(' ', 1)
             if command[0] in ('search', 's'):
                 try:
@@ -144,7 +155,12 @@ class CommandPrompt(urwid.Edit):
                 status_bar.set_text(' Listing downloaded videos')
                 loop.draw_screen()
                 sorted_video_list = sorted(self.get_downloaded_video_list())
-                videos = [client.get_local_video(video) for video in sorted_video_list]
+                try:
+                    pattern = command[1].lower()
+                    videos = [client.get_local_video(video) for video in sorted_video_list
+                        if pattern in video.lower()]
+                except IndexError:
+                    videos = [client.get_local_video(video) for video in sorted_video_list]
                 listbox.append(videos, color='downloaded')
                 main_frame.set_focus('body')
             elif command[0] == 'clear':
@@ -163,7 +179,33 @@ class CommandPrompt(urwid.Edit):
                 pass
         elif key in ('esc', 'ctrl x'):
             main_frame.set_focus('body')
+            self.history_offset = 0
             self.clear()
+        elif key in ('ctrl p', 'up'):
+            if self.get_edit_text() not in self.history:
+                self.current_command = self.get_edit_text()
+            try:
+                self.history_offset -= 1
+                command = self.history[self.history_offset]
+                self.set_edit_text(command)
+                self.set_edit_pos(len(command))
+            except IndexError:
+                self.history_offset += 1
+        elif key in ('ctrl n', 'down'):
+            if self.get_edit_text() not in self.history:
+                self.current_command = self.get_edit_text()
+            try:
+                self.history_offset += 1
+                if self.history_offset == 0:
+                    command = self.current_command
+                elif self.history_offset < 0:
+                    command = self.history[self.history_offset]
+                else:
+                    raise IndexError
+                self.set_edit_text(command)
+                self.set_edit_pos(len(command))
+            except IndexError:
+                self.history_offset -= 1
         else:
             return urwid.Edit.keypress(self, size, key)
 
@@ -330,7 +372,7 @@ def main():
     global loop
 
     listbox = VideoListBox()
-    command_prompt = CommandPrompt('')
+    command_prompt = CommandPrompt()
     welcome_message = ' Type ":s Monty Python<Enter>" to search for "Monty Python" videos on YouTube'
     status_bar = urwid.Text(welcome_message, align='left')
     footer = urwid.Pile([urwid.AttrMap(status_bar, 'status'), command_prompt])
