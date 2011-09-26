@@ -167,6 +167,19 @@ class CommandPrompt(urwid.Edit):
                 self.clear()
                 listbox.clear()
                 main_frame.set_focus('body')
+            elif command[0] == 'delete':
+                self.clear()
+                videobutton = listbox.get_focus()
+                videofile = os.path.join(os.environ['HOME'], '.videotop/videos/' + videobutton.video.filename)
+                extensions = ['.flv', '.mp4', '.webm']
+                for ext in extensions:
+                    try:
+                        os.remove(videofile + ext)
+                    except OSError:
+                        pass
+                listbox.body.pop(listbox.listbox.get_focus()[1])
+                status_bar.set_text(' Deleted "' + videobutton.video.title + '"')
+                main_frame.set_focus('body')
             elif command[0].isdigit():
                 self.clear()
                 video_focus = int(command[0]) - 1
