@@ -16,7 +16,7 @@ in fact you can resume the download if you hit **ENTER** again.
 You can also open the YouTube page by hitting **o** or directly stream the video with MPlayer by hitting **s**.  
 **CTRL n** lists the next videos of your previous search and **CTRL r** clears the screen.
 
-To search for the string *SOMETHING* in the current video list type **/***SOMETHING* and  
+To search for the string *SOMETHING* in the current video list type **/***SOMETHING* and
 hit **n** to get to the next or **N** to get to the previous item.  
 With the command **:videos** or just **:v** all downloaded videos will be listed. A pattern can also be specified, so
 **:v monty** will list all videos containing the substring *monty*.

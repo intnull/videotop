@@ -3,9 +3,10 @@ from subprocess import Popen, PIPE
 
 
 class DownloadThread(threading.Thread):
+
     def __init__(self, title, url):
         threading.Thread.__init__(self)
-        self.progress = 'Preparing download...\n'
+        self.progress = 'Preparing download...'
         self.updated = True
         self.killed = False
 
@@ -25,6 +26,6 @@ class DownloadThread(threading.Thread):
             self.progress = self.download_process.stdout.readline()
             self.updated = True
         if self.killed:
-            self.progress = 'Aborted downloading\n'
+            self.progress = 'Aborted downloading'
         else:
-            self.progress = 'Finished downloading\n'
+            self.progress = 'Finished downloading'

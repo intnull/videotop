@@ -6,7 +6,6 @@ import errno
 import urwid
 import youtube_client
 
-
 import socket # socket.gaierror
 import subprocess # subprocess.CalledProcessError
 
@@ -17,31 +16,11 @@ class VideoButton(urwid.FlowWidget):
     def __init__(self, video, index, color='index'):
         self.video = video
         self.index = index
+        info = ('normal', ' (' + self.video.author + ', ' + self.video.rating + ', ' + self.video.duration + ')')
+        self.title = urwid.Text([self.video.title, info])
         index = urwid.Text(('normal', ' ' + str(self.index) + '. '), align='right')
-        try:
-            rounded_rating = str(round(float(self.video.rating), 1))
-        except:
-            rounded_rating = self.video.rating
-
-        youtube_username_max_len = 20
-        duration = self.video.get_formatted_duration()
-        views = self.video.get_formatted_views()
-        views = urwid.Text([('normal', 'Views: '), ('bold', views)])
-        rating = urwid.Text([('normal', 'Rating: '), ('bold', rounded_rating)])
-        author = urwid.Text([('normal', 'Author: '), ('bold', self.video.author)])
-        duration = urwid.Text([('normal', 'Duration: '), ('bold', duration)])
-        published = urwid.Text([('normal', 'Published: '), ('bold', self.video.published)])
-        button_info = urwid.Columns([('fixed', 20, views),
-                                     ('fixed', 16, rating),
-                                     ('fixed', 22, duration),
-                                     ('fixed', 26, published),
-                                     ('fixed', youtube_username_max_len + 8, author)])
-        title = urwid.Text(self.video.title)
-        self.empty_line = urwid.Text('')
-        self.button = urwid.Pile([title, button_info, self.empty_line])
-
         index_width = 6
-        self.display_widget = urwid.Columns([('fixed', index_width, index), self.button])
+        self.display_widget = urwid.Columns([('fixed', index_width, index), self.title])
         self.display_widget = urwid.AttrMap(self.display_widget, color, 'focus')
 
     def rows(self, size, focus=False):
@@ -55,8 +34,17 @@ class VideoButton(urwid.FlowWidget):
 
     def keypress(self, size, key):
         if key == 'enter':
-            self.display_widget.set_attr_map({None: 'downloaded'})
             status_bar.set_text(' Downloading: "' + self.video.title + '"')
+
+            # add download progress bar
+            self.download_status = urwid.Text('Preparing download...')
+            self.button = urwid.Pile([self.title, self.download_status])
+            index = urwid.Text(('normal', ' ' + str(self.index) + '. '), align='right')
+            index_width = 6
+            self.display_widget = urwid.Columns([('fixed', index_width, index), self.button])
+            self.display_widget = urwid.AttrMap(self.display_widget, 'downloaded', 'focus')
+            self._invalidate()
+
             try:
                 self.video.download()
                 VideoButton.clicked_buttons.append(self)
@@ -79,6 +67,7 @@ class VideoButton(urwid.FlowWidget):
             loop.draw_screen()
             try:
                 self.video.stream()
+                status_bar.set_text(' Streamed: "' + self.video.title + '"')
             except AttributeError:
                 status_bar.set_text(' Local videos do not support streaming yet')
             except subprocess.CalledProcessError:
@@ -100,11 +89,6 @@ class CommandPrompt(urwid.Edit):
     def clear(self):
         self.set_caption('')
         self.set_edit_text('')
-
-    def get_downloaded_video_list(self):
-        video_list = os.listdir(os.getcwd())
-        video_list = [os.path.splitext(video)[0] for video in video_list]
-        return video_list
 
     def keypress(self, size, key):
         if key == 'backspace':
@@ -136,10 +120,6 @@ class CommandPrompt(urwid.Edit):
                     search = client.search(query)
                     if search != []:
                         listbox.append(search)
-                        search_begin = len(listbox.body) - len(search)
-                        listbox.set_focus(search_begin)
-                        status_bar.set_text(' "' + query + 
-                            '" (' + str(search_begin + 1) + ' - ' + str(len(listbox.body)) + ')')
                     else:
                         status_bar.set_text(' No results found for: "' + query + '"')
                     main_frame.set_focus('body')
@@ -154,14 +134,15 @@ class CommandPrompt(urwid.Edit):
                 self.clear()
                 status_bar.set_text(' Listing downloaded videos')
                 loop.draw_screen()
-                sorted_video_list = sorted(self.get_downloaded_video_list())
+                sorted_video_list = sorted(listbox.get_downloaded_video_list())
                 try:
                     pattern = command[1].lower()
+                    pattern = pattern.encode('utf-8', 'ignore')
                     videos = [client.get_local_video(video) for video in sorted_video_list
-                        if pattern in video.lower()]
+                              if pattern in video.lower()]
                 except IndexError:
                     videos = [client.get_local_video(video) for video in sorted_video_list]
-                listbox.append(videos, color='downloaded')
+                listbox.append(videos)
                 main_frame.set_focus('body')
             elif command[0] == 'clear':
                 self.clear()
@@ -170,6 +151,7 @@ class CommandPrompt(urwid.Edit):
             elif command[0] == 'delete':
                 self.clear()
                 videobutton = listbox.get_focus()
+                videobutton.video.abort()
                 videofile = os.path.join(os.environ['HOME'], '.videotop/videos/' + videobutton.video.filename)
                 extensions = ['.flv', '.mp4', '.webm']
                 for ext in extensions:
@@ -177,13 +159,15 @@ class CommandPrompt(urwid.Edit):
                         os.remove(videofile + ext)
                     except OSError:
                         pass
-                listbox.body.pop(listbox.listbox.get_focus()[1])
+                videobutton.display_widget.set_attr_map({None: 'deleted'})
+                videobutton.display_widget.set_focus_map({None: 'deleted_focus'})
+
                 status_bar.set_text(' Deleted "' + videobutton.video.title + '"')
                 main_frame.set_focus('body')
             elif command[0].isdigit():
                 self.clear()
-                video_focus = int(command[0]) - 1
-                listbox.set_focus(video_focus)
+                index = listbox.get_real_index(int(command[0]))
+                listbox.set_focus(index)
                 main_frame.set_focus('body')
             elif command[0] in ('quit', 'q'):
                 raise urwid.ExitMainLoop()
@@ -230,20 +214,49 @@ class VideoListBox(urwid.WidgetWrap):
         self.body = urwid.SimpleListWalker([])
         self.listbox = urwid.ListBox(self.body)
         urwid.WidgetWrap.__init__(self, self.listbox)
+        self.dividers = 0
 
-    def append(self, search, color='video'):
-        downloaded_videos = command_prompt.get_downloaded_video_list()
+    def get_downloaded_video_list(self):
+        video_list = os.listdir(os.getcwd())
+        video_list = [os.path.splitext(video)[0] for video in video_list]
+        return video_list
+
+    def append(self, search):
+        # add separator if listbox not empty
+        if len(self.body):
+            self.body.append(urwid.Divider('-'))
+            self.dividers += 1
+
+        downloaded_videos = self.get_downloaded_video_list()
         for video in search:
             if video.filename in downloaded_videos:
                 color = 'downloaded'
             else:
                 color = 'video'
-            new_button = VideoButton(video, int(len(self.body)) + 1, color)
+            index = int(len(self.body)) - self.dividers + 1
+            new_button = VideoButton(video, index, color)
             self.body.append(new_button)
+
+        # move cursor to the first video of the search
+        search_begin = len(self.body) - len(search)
+        self.set_focus(search_begin)
+
+    def get_real_index(self, index):
+        # get the real index ignoring divider widgets
+        for i in range(len(self.body)):
+            try:
+                buttonindex = self.body[i].index
+                if index == buttonindex:
+                    index = i
+                    break
+            except AttributeError:
+                pass
+        return index
 
     def clear(self):
         status_bar.set_text(' Cleared the screen')
         self.body[:] = []
+        self.dividers = 0
 
     def set_focus(self, position):
         self.listbox.set_focus(position)
@@ -254,12 +267,19 @@ class VideoListBox(urwid.WidgetWrap):
     def search(self, pattern):
         # ignore case
         pattern = pattern.lower()
-        video_list = [video_button.video.title.lower() for video_button in self.body]
-        index_list = []
-        for video in video_list:
-            if pattern in video:
-                index_list.append(video_list.index(video))
-        self.latest_search = index_list
+        pattern = pattern.encode('utf-8', 'ignore')
+
+        results = []
+        for i in range(len(self.body)):
+            try:
+                title = self.body[i].video.title.lower()
+                if pattern in title:
+                    results.append(i)
+            except AttributeError:
+                # ignore divider widgets
+                pass
+
+        self.latest_search = results
         self.latest_search_position = 0
         try:
             first_result = self.latest_search[self.latest_search_position]
@@ -293,15 +313,17 @@ class VideoListBox(urwid.WidgetWrap):
                 pass
         elif key == 'ctrl d':
             try:
-                position = self.listbox.get_focus()[1] + 5
+                position = self.listbox.get_focus()[0].index + 5
+                position = self.get_real_index(position)
                 self.listbox.set_focus(position, 'above')
             except TypeError:
                 pass
         elif key == 'ctrl u':
             try:
-                position = self.listbox.get_focus()[1] - 5
+                position = self.listbox.get_focus()[0].index - 5
                 if position < 0:
                     position = 0
+                position = self.get_real_index(position)
                 self.listbox.set_focus(position, 'below')
             except TypeError:
                 pass
@@ -349,7 +371,7 @@ def update(main_loop, user_data):
             # search corresponding buttons and update download status
             for button in VideoButton.clicked_buttons:
                 if button.video == video:
-                    button.empty_line.set_text(('downloading', video.dl.progress))
+                    button.download_status.set_text(('downloading', video.dl.progress.rstrip()))
     main_loop.set_alarm_in(0.5, update)
 
 
@@ -364,7 +386,6 @@ def main():
             pass
         else:
             raise
-    # change working directory to download directory
     os.chdir(download_dir)
 
     palette = [('focus', 'light red', 'black', 'standout'),
@@ -375,6 +396,8 @@ def main():
               ('downloaded', 'light green', 'black'),
               ('downloading', 'light blue', 'black'),
               ('video', 'dark cyan', 'black'),
+              ('deleted', 'dark gray', 'black'),
+              ('deleted_focus', 'dark red', 'black'),
               ('normal', 'light gray', 'black')]
 
     global listbox

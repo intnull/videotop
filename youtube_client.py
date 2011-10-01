@@ -54,28 +54,38 @@ class YouTubeVideo:
     def __init__(self, entry):
         self.entry = entry
         self.title = entry.media.title.text
+        self.download_process = None
+
         # replace slashes with html code &#47;
         self.filename = self.title.replace('/', '&#47;')
+
         try:
             self.url = entry.media.player.url
-            self.duration = entry.media.duration.seconds
             self.description = entry.media.description.text
             self.author = entry.author[0].name.text
             self.published = entry.published.text.split('T')[0]
         except:
             # dunno, local video
             self.author = 'N/A'
-            self.duration = 'N/A'
             self.published = 'N/A'
+
+        try:
+            self.duration = entry.media.duration.seconds
+            self.duration = self.get_formatted_duration()
+        except AttributeError:
+            self.duration = 'N/A'
+
         try:
             self.views = entry.statistics.view_count
+            self.views = self.get_formatted_views()
         except AttributeError:
             self.views = 'N/A'
+
         try:
             self.rating = entry.rating.average
+            self.rating = str(round(float(self.rating), 1))
         except AttributeError:
             self.rating = 'N/A'
-        self.download_process = None
 
     def open(self):
         webbrowser.open_new_tab(self.url)
@@ -93,19 +103,13 @@ class YouTubeVideo:
             return 'Aborting downloading "' + self.title + '" failed'
 
     def get_formatted_duration(self):
-        try:
-            m, s = divmod(int(self.duration), 60)
-            h, m = divmod(m, 60)
-            formatted_duration = "%d:%02d:%02d" % (h, m, s)
-            return formatted_duration
-        except:
-            return self.duration
+        m, s = divmod(int(self.duration), 60)
+        h, m = divmod(m, 60)
+        formatted_duration = "%d:%02d:%02d" % (h, m, s)
+        return formatted_duration
 
     def get_formatted_views(self):
-        try:
-            return locale.format('%d', int(self.views), grouping=True)
-        except ValueError:
-            return self.views
+        return locale.format('%d', int(self.views), grouping=True)
 
     def play(self):
         devnull = open(os.devnull)
